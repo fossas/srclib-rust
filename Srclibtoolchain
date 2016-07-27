@@ -1,0 +1,11 @@
+{
+  "Tools": [
+    {
+      "Subcmd": "scan",
+      "Op": "scan",
+      "SourceUnitTypes": [
+        "RustCargoPackage"
+      ]
+    }
+  ]
+}
