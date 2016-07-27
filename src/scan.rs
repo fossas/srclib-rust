@@ -36,7 +36,7 @@ fn find_all_manifest_files(root: &std::path::Path) -> Vec<String> {
 
 fn get_files(root: &std::path::Path, config: &Config) -> Vec<String> {
   let mut v: Vec<String> = Vec::new();
-  let glob_path_buf = root.join("src").join("**").join("*.rs");
+  let glob_path_buf = root.join("**").join("*.rs");
 
   for entry in glob(glob_path_buf.to_str().unwrap()).expect("Failed to read glob pattern") {
     match entry {
