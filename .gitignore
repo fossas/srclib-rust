@@ -14,3 +14,4 @@
 
 # Srclib directories
 .bin
+.srclib-cache

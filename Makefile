@@ -10,21 +10,20 @@ else
 endif
 
 BIN_DIR=${PWD}/.bin
+TARGET_DIR=${PWD}/target
 
 .PHONY: install symlink clean
 
 default: install symlink
 
 symlink: ${BIN_DIR}
-	ln -sf ${PWD}/target/release/srclib-rust ${PWD}/.bin/
+	ln -sf ${TARGET_DIR}/release/srclib-rust ${BIN_DIR}/
 
-install: ${PWD}/target/release/srclib-rust
-
-${PWD}/target/release/srclib-rust:
+install:
 	cargo build --release
 
 ${BIN_DIR}:
 	mkdir -p ${BIN_DIR}
 
 clean:
-	rm -rf ${PWD}/.bin ${PWD}/target
+	rm -rf ${BIN_DIR} ${TARGET_DIR}
