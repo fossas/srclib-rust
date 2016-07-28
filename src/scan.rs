@@ -58,8 +58,8 @@ fn get_resolved_dependencies<'a>(package: &Package, config: &'a Config) -> Optio
         }
       }
     },
-    Err(_) => {
-      println_stderr!("Could not get dependencies");
+    Err(e) => {
+      println_stderr!("Could not get dependencies: {:?}", e);
     }
   }
 
