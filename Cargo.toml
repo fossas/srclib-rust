@@ -5,7 +5,7 @@ authors = ["Jakub <jakub@jakub.cc>"]
 
 [[bin]]
 name = "srclib-rust"
-path = "src/scan.rs"
+path = "src/main.rs"
 
 [dependencies]
 cargo = "0.11.0"

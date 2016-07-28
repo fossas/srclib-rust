@@ -1,53 +1,16 @@
 extern crate cargo;
 extern crate glob;
-extern crate rustc_serialize;
 extern crate semver;
 
-use cargo::core::{Package, Dependency};
-use cargo::util::{Config};
-use cargo::ops::{output_metadata, OutputMetadataOptions, ExportInfo, resolve_dependencies};
-use glob::glob;
-use rustc_serialize::{Encodable, Encoder, json};
+use self::cargo::core::{Package, Dependency};
+use self::cargo::util::{Config};
+use self::cargo::ops::{output_metadata, OutputMetadataOptions, ExportInfo, resolve_dependencies};
+use self::glob::glob;
 use std::collections::HashMap;
 use std::path::Path;
 use std::io::Write;
 
-macro_rules! println_stderr(
-  ($($arg:tt)*) => { {
-    let r = writeln!(&mut ::std::io::stderr(), $($arg)*);
-    r.expect("failed printing to stderr");
-  } }
-);
-
-struct EncodableVersion {
-  version: semver::Version
-}
-
-impl Encodable for EncodableVersion {
-  fn encode<S: Encoder>(&self, s: &mut S) -> Result<(), S::Error> {
-    format!("{}", self.version).encode(s)
-  }
-}
-
-#[allow(dead_code, non_snake_case)]
-#[derive(RustcEncodable)]
-struct SourceUnitDependency {
-  raw: Dependency,
-  name: String,
-  version: Option<EncodableVersion>
-}
-
-#[allow(dead_code, non_snake_case)]
-#[derive(RustcEncodable)]
-struct SourceUnit {
-  Name: String,
-  Type: String,
-  Repo: Option<String>,
-  Files: Vec<String>,
-  Dir: String,
-  Dependencies: Option<Vec<SourceUnitDependency>>,
-  Metadata: Option<ExportInfo>
-}
+use common::{PACKAGE_TYPE, EncodableVersion, SourceUnit, ResolvedDependency};
 
 pub fn get_metadata(root: &Path, config: &Config) -> Option<ExportInfo> {
   let options = OutputMetadataOptions {
@@ -69,9 +32,9 @@ pub fn get_metadata(root: &Path, config: &Config) -> Option<ExportInfo> {
   }
 }
 
-fn get_resolved_dependencies<'a>(package: &Package, config: &'a Config) -> Option<Vec<SourceUnitDependency>> {
+fn get_resolved_dependencies<'a>(package: &Package, config: &'a Config) -> Option<Vec<ResolvedDependency>> {
   let dependencies: Vec<Dependency> = package.dependencies().iter().map(|dep| dep.clone()).collect();
-  let mut resolved_dependencies: Vec<SourceUnitDependency> = Vec::new();
+  let mut resolved_dependencies: Vec<ResolvedDependency> = Vec::new();
   let mut version_lookup: HashMap<String, semver::Version> = HashMap::new();
 
   match resolve_dependencies(&package, &config, None, vec![], false) {
@@ -82,20 +45,15 @@ fn get_resolved_dependencies<'a>(package: &Package, config: &'a Config) -> Optio
       for dependency in dependencies {
         match version_lookup.get(&dependency.name().to_string()).clone() {
           Some(version) => {
-            resolved_dependencies.push(SourceUnitDependency {
-              raw: dependency.clone(),
-              name: dependency.name().to_string(),
-              version: Some(EncodableVersion{
-                version: version.clone()
-              })
-            });
+            resolved_dependencies.push(
+              ResolvedDependency::new(
+                &dependency,
+                Some(EncodableVersion::new(&version))));
           },
           None => {
-            resolved_dependencies.push(SourceUnitDependency {
-              raw: dependency.clone(),
-              name: dependency.name().to_string(),
-              version: None
-            });
+            resolved_dependencies.push(
+              ResolvedDependency::new(&dependency, None)
+            );
           }
         }
       }
@@ -108,7 +66,7 @@ fn get_resolved_dependencies<'a>(package: &Package, config: &'a Config) -> Optio
   Some(resolved_dependencies)
 }
 
-fn find_all_manifest_files(root: &std::path::Path) -> Vec<String> {
+fn find_all_manifest_files(root: &Path) -> Vec<String> {
   let mut v: Vec<String> = Vec::new();
   let glob_path_buf = root.join("**").join("Cargo.toml");
 
@@ -122,7 +80,7 @@ fn find_all_manifest_files(root: &std::path::Path) -> Vec<String> {
   return v;
 }
 
-fn get_files(root: &std::path::Path, config: &Config) -> Vec<String> {
+fn get_files(root: &Path, config: &Config) -> Vec<String> {
   let mut v: Vec<String> = Vec::new();
   let glob_path_buf = root.join("**").join("*.rs");
 
@@ -142,15 +100,15 @@ fn construct_source_unit<'a>(manifest_file: &String, config: &'a Config) -> Resu
   let manifest = package.manifest();
   let dir = root.parent().unwrap().strip_prefix(config.cwd()).ok().unwrap();
 
-  Ok(SourceUnit {
-    Name: package.name().to_string(),
-    Type: "RustCargoPackage".to_string(),
-    Repo: manifest.metadata().repository.clone(),
-    Files: get_files(&root.parent().unwrap(), &config),
-    Dir: dir.to_str().unwrap().to_string(),
-    Dependencies: get_resolved_dependencies(&package, &config),
-    Metadata: get_metadata(&root, &config)
-  })
+  Ok(SourceUnit::new(
+    package.name().to_string(),
+    PACKAGE_TYPE.to_string(),
+    manifest.metadata().repository.clone(),
+    get_files(&root.parent().unwrap(), &config),
+    dir.to_str().unwrap().to_string(),
+    get_resolved_dependencies(&package, &config),
+    get_metadata(&root, &config)
+  ))
 }
 
 fn construct_source_units<'a>(manifest_files: &Vec<String>, config: &'a Config) -> Result<Vec<SourceUnit>, cargo::util::errors::CliError> {
@@ -161,10 +119,7 @@ fn construct_source_units<'a>(manifest_files: &Vec<String>, config: &'a Config) 
   return Ok(source_units);
 }
 
-fn main() {
-  let config = Config::default().unwrap();
+pub fn execute<'a>(config: &'a Config) -> Result<Vec<SourceUnit>, cargo::util::errors::CliError> {
   let manifest_files = find_all_manifest_files(config.cwd());
-  let source_units = construct_source_units(&manifest_files, &config).unwrap();
-  let encoded = json::encode(&source_units).unwrap();
-  println!("{}", encoded);
+  return construct_source_units(&manifest_files, &config);
 }
