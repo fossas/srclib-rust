@@ -2,15 +2,15 @@ extern crate cargo;
 extern crate glob;
 extern crate semver;
 
-use self::cargo::core::{Package, Dependency};
-use self::cargo::util::{Config};
-use self::cargo::ops::{output_metadata, OutputMetadataOptions, ExportInfo, resolve_dependencies};
+use self::cargo::core::Package;
+use self::cargo::util::Config;
+use self::cargo::ops::{output_metadata, OutputMetadataOptions, ExportInfo};
 use self::glob::glob;
-use std::collections::HashMap;
 use std::path::Path;
 use std::io::Write;
 
-use common::{PACKAGE_TYPE, EncodableVersion, SourceUnit, ResolvedDependency};
+use common::{PACKAGE_TYPE, SourceUnit};
+use resolve::{resolve_dependencies, override_path_dependencies};
 
 pub fn get_metadata(root: &Path, config: &Config) -> Option<ExportInfo> {
   let options = OutputMetadataOptions {
@@ -30,40 +30,6 @@ pub fn get_metadata(root: &Path, config: &Config) -> Option<ExportInfo> {
       return None;
     }
   }
-}
-
-fn get_resolved_dependencies<'a>(package: &Package, config: &'a Config) -> Option<Vec<ResolvedDependency>> {
-  let dependencies: Vec<Dependency> = package.dependencies().iter().map(|dep| dep.clone()).collect();
-  let mut resolved_dependencies: Vec<ResolvedDependency> = Vec::new();
-  let mut version_lookup: HashMap<String, semver::Version> = HashMap::new();
-
-  match resolve_dependencies(&package, &config, None, vec![], false) {
-    Ok((package_set, _)) => {
-      for package_id in package_set.package_ids() {
-        version_lookup.insert(package_id.name().to_string().clone(), package_id.version().clone());
-      }
-      for dependency in dependencies {
-        match version_lookup.get(&dependency.name().to_string()).clone() {
-          Some(version) => {
-            resolved_dependencies.push(
-              ResolvedDependency::new(
-                &dependency,
-                Some(EncodableVersion::new(&version))));
-          },
-          None => {
-            resolved_dependencies.push(
-              ResolvedDependency::new(&dependency, None)
-            );
-          }
-        }
-      }
-    },
-    Err(e) => {
-      println_stderr!("Could not get dependencies: {:?}", e);
-    }
-  }
-
-  Some(resolved_dependencies)
 }
 
 fn find_all_manifest_files(root: &Path) -> Vec<String> {
@@ -100,15 +66,30 @@ fn construct_source_unit<'a>(manifest_file: &String, config: &'a Config) -> Resu
   let manifest = package.manifest();
   let dir = root.parent().unwrap().strip_prefix(config.cwd()).ok().unwrap();
 
-  Ok(SourceUnit::new(
-    package.name().to_string(),
-    PACKAGE_TYPE.to_string(),
-    manifest.metadata().repository.clone(),
-    get_files(&root.parent().unwrap(), &config),
-    dir.to_str().unwrap().to_string(),
-    get_resolved_dependencies(&package, &config),
-    get_metadata(&root, &config)
-  ))
+  match override_path_dependencies(&package) {
+    Some(package) => {
+      Ok(SourceUnit::new(
+        package.name().to_string(),
+        PACKAGE_TYPE.to_string(),
+        manifest.metadata().repository.clone(),
+        get_files(&root.parent().unwrap(), &config),
+        dir.to_str().unwrap().to_string(),
+        resolve_dependencies(&package, &config),
+        get_metadata(&root, &config)
+      ))
+    },
+    None => {
+      Ok(SourceUnit::new(
+        package.name().to_string(),
+        PACKAGE_TYPE.to_string(),
+        manifest.metadata().repository.clone(),
+        get_files(&root.parent().unwrap(), &config),
+        dir.to_str().unwrap().to_string(),
+        resolve_dependencies(&package, &config),
+        get_metadata(&root, &config)
+      ))
+    }
+  }
 }
 
 fn construct_source_units<'a>(manifest_files: &Vec<String>, config: &'a Config) -> Result<Vec<SourceUnit>, cargo::util::errors::CliError> {

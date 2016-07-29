@@ -1,0 +1,99 @@
+extern crate cargo;
+extern crate glob;
+extern crate semver;
+
+use self::cargo::core::{Dependency, Manifest, Package, SourceId, Summary};
+use self::cargo::sources::RegistrySource;
+use self::cargo::util::Config;
+use self::cargo::ops;
+use std::collections::HashMap;
+use std::path::Path;
+use std::io::Write;
+
+use common::{EncodableVersion, ResolvedDependency};
+
+pub fn resolve_dependencies<'a>(package: &Package, config: &'a Config) -> Option<Vec<ResolvedDependency>> {
+  let dependencies: Vec<Dependency> = package.dependencies().iter().map(|dep| dep.clone()).collect();
+  let mut resolved_dependencies: Vec<ResolvedDependency> = Vec::new();
+  let mut version_lookup: HashMap<String, semver::Version> = HashMap::new();
+
+  match ops::resolve_dependencies(&package, &config, None, vec![], false) {
+    Ok((package_set, _)) => {
+      for package_id in package_set.package_ids() {
+        version_lookup.insert(package_id.name().to_string().clone(), package_id.version().clone());
+      }
+      for dependency in dependencies {
+        match version_lookup.get(&dependency.name().to_string()).clone() {
+          Some(version) => {
+            resolved_dependencies.push(
+              ResolvedDependency::new(
+                &dependency,
+                Some(EncodableVersion::new(&version))));
+          },
+          None => {
+            resolved_dependencies.push(
+              ResolvedDependency::new(&dependency, None)
+            );
+          }
+        }
+      }
+    },
+    Err(e) => {
+      println_stderr!("Could not get versions for dependencies: {:?}", e);
+    }
+  }
+
+  Some(resolved_dependencies)
+}
+
+/// # override_path_dependencies
+/// Replace path dependencies that have a version and don't exist on the filesystem.
+///
+/// ## Returns
+/// Package
+pub fn override_path_dependencies(package: &Package) -> Option<Package> {
+  let dependencies: Vec<Dependency> = package.dependencies().iter().map(|dep| dep.clone()).collect();
+  let mut new_dependencies = Vec::<Dependency>::new();
+  let registry_url = "registry+".to_string() + RegistrySource::default_url().as_str();
+
+  // Replace for paths that don't exist.
+  for dependency in dependencies {
+    if dependency.source_id().is_path() {
+      let url = dependency.source_id().to_url().clone();
+      let path = Path::new(url.as_str());
+      if path.exists() {
+        new_dependencies.push(dependency.clone());
+      } else {
+        new_dependencies.push(dependency.clone_inner().set_source_id(SourceId::from_url(registry_url.as_str())).into_dependency());
+      }
+    } else {
+      new_dependencies.push(dependency.clone());
+    }
+  }
+
+  match Summary::new(
+    package.manifest().summary().package_id().clone(),
+    new_dependencies,
+    package.manifest().summary().features().clone(),
+  ) {
+    Ok(summary) => {
+      let manifest = Manifest::new(summary,
+        //package.manifest().summary().clone(),
+        package.manifest().targets().iter().map(|t| t.clone()).collect(),
+        package.manifest().exclude().iter().map(|e| e.clone()).collect(),
+        package.manifest().include().iter().map(|i| i.clone()).collect(),
+        package.manifest().links().as_ref().map(|l| l.to_string()),
+        package.manifest().metadata().clone(),
+        package.manifest().profiles().clone(),
+        package.manifest().publish(),
+        package.manifest().replace().iter().map(|r| r.clone()).collect()
+      );
+
+      Some(Package::new(manifest, package.manifest_path().clone()))
+    },
+    Err(e) => {
+      println_stderr!("Could not create new package while override dependencies: {:?}", e);
+      None
+    }
+  }
+}

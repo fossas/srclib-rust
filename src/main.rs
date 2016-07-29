@@ -4,6 +4,7 @@ extern crate docopt;
 
 #[macro_use]
 mod common;
+mod resolve;
 mod scan;
 
 use cargo::util::Config;
