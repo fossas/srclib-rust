@@ -2,7 +2,7 @@ extern crate cargo;
 extern crate rustc_serialize;
 extern crate semver;
 
-use self::cargo::core::{Dependency};
+use self::cargo::core::{Dependency, SourceId};
 use self::cargo::core::dependency::{Platform, Kind};
 use self::cargo::ops::{ExportInfo};
 use self::rustc_serialize::{Encodable, Encoder};
@@ -40,6 +40,7 @@ pub struct ResolvedDependency {
   Name: String,
   Version: Option<EncodableVersion>,
   Optional: bool,
+  Source: SourceId,
   Scope: Kind,
   DefaultFeatures: bool,
   Features: Vec<String>,
@@ -58,6 +59,7 @@ impl ResolvedDependency {
       Name: dependency.name().to_string(),
       Version: version,
       Optional: dependency.is_optional(),
+      Source: dependency.source_id().clone(),
       Scope: dependency.kind(),
       DefaultFeatures: dependency.uses_default_features(),
       Features: dependency.features().iter().map(|dep| dep.clone()).collect(),

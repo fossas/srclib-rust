@@ -78,7 +78,6 @@ pub fn override_path_dependencies(package: &Package) -> Option<Package> {
   ) {
     Ok(summary) => {
       let manifest = Manifest::new(summary,
-        //package.manifest().summary().clone(),
         package.manifest().targets().iter().map(|t| t.clone()).collect(),
         package.manifest().exclude().iter().map(|e| e.clone()).collect(),
         package.manifest().include().iter().map(|i| i.clone()).collect(),
