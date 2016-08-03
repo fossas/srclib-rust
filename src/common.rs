@@ -41,7 +41,7 @@ pub struct ResolvedDependency {
   Version: Option<EncodableVersion>,
   Optional: bool,
   Source: SourceId,
-  Scope: Kind,
+  Scope: Option<String>,
   DefaultFeatures: bool,
   Features: Vec<String>,
   Platform: Option<Platform>
@@ -50,20 +50,22 @@ pub struct ResolvedDependency {
 impl ResolvedDependency {
   pub fn new(dependency: &Dependency,
              version: Option<EncodableVersion>) -> ResolvedDependency {
-    let platform: Option<Platform>;
-    match dependency.platform() {
-      Some(p) => platform = Some(p.clone()),
-      None => platform = None,
-    }
     ResolvedDependency {
       Name: dependency.name().to_string(),
       Version: version,
       Optional: dependency.is_optional(),
       Source: dependency.source_id().clone(),
-      Scope: dependency.kind(),
+      Scope: match dependency.kind() {
+            Kind::Normal => Some("normal".to_string()),
+            Kind::Development => Some("dev".to_string()),
+            Kind::Build => Some("build".to_string()),
+        },
       DefaultFeatures: dependency.uses_default_features(),
       Features: dependency.features().iter().map(|dep| dep.clone()).collect(),
-      Platform: platform
+      Platform: match dependency.platform() {
+        Some(p) => Some(p.clone()),
+        None => None,
+      }
     }
   }
 }
