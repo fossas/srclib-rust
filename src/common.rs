@@ -72,6 +72,23 @@ impl ResolvedDependency {
 
 #[allow(dead_code, non_snake_case)]
 #[derive(RustcEncodable)]
+pub struct SourceUnitMetadata {
+  pub ExportInfo: Option<ExportInfo>,
+  pub License: Option<String>,
+}
+
+impl SourceUnitMetadata {
+  pub fn new(exportinfo: Option<ExportInfo>,
+             license: Option<String>) -> SourceUnitMetadata {
+    SourceUnitMetadata {
+      ExportInfo: exportinfo,
+      License: license,
+    }
+  }
+}
+
+#[allow(dead_code, non_snake_case)]
+#[derive(RustcEncodable)]
 pub struct SourceUnit {
   Name: String,
   Type: String,
@@ -79,7 +96,7 @@ pub struct SourceUnit {
   Files: Vec<String>,
   Dir: String,
   Dependencies: Option<Vec<ResolvedDependency>>,
-  Data: Option<ExportInfo>
+  Data: Option<SourceUnitMetadata>
 }
 
 impl SourceUnit {
@@ -89,7 +106,7 @@ impl SourceUnit {
              files: Vec<String>,
              dir: String,
              dependencies: Option<Vec<ResolvedDependency>>,
-             data: Option<ExportInfo>) -> SourceUnit {
+             data: Option<SourceUnitMetadata>) -> SourceUnit {
     SourceUnit {
       Name: name,
       Type: kind,

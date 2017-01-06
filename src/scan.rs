@@ -4,15 +4,15 @@ extern crate semver;
 
 use self::cargo::core::Package;
 use self::cargo::util::Config;
-use self::cargo::ops::{output_metadata, OutputMetadataOptions, ExportInfo};
+use self::cargo::ops::{output_metadata, OutputMetadataOptions};
 use self::glob::glob;
 use std::path::Path;
 use std::io::Write;
 
-use common::{PACKAGE_TYPE, SourceUnit};
+use common::{PACKAGE_TYPE, SourceUnit, SourceUnitMetadata};
 use resolve::{resolve_dependencies, override_path_dependencies};
 
-pub fn get_metadata(root: &Path, config: &Config) -> Option<ExportInfo> {
+pub fn get_metadata(root: &Path, config: &Config, license: Option<String>) -> SourceUnitMetadata {
   let options = OutputMetadataOptions {
     features: vec![],
     manifest_path: &root,
@@ -23,11 +23,11 @@ pub fn get_metadata(root: &Path, config: &Config) -> Option<ExportInfo> {
 
   match output_metadata(options, &config) {
     Ok(x) => {
-      return Some(x);
+      return SourceUnitMetadata::new(Some(x), license);
     },
     Err(_) => {
       println_stderr!("Could not get metadata for manifest path {}", root.to_str().unwrap());
-      return None;
+      return SourceUnitMetadata::new(None, license);
     }
   }
 }
@@ -65,6 +65,7 @@ fn construct_source_unit<'a>(manifest_file: &String, config: &'a Config) -> Resu
   let package = try!(Package::for_path(&root, &config));
   let manifest = package.manifest();
   let dir = root.parent().unwrap().strip_prefix(config.cwd()).ok().unwrap();
+  let metadata = get_metadata(&root, &config, manifest.metadata().license.clone());
 
   match override_path_dependencies(&package) {
     Some(package) => {
@@ -75,7 +76,7 @@ fn construct_source_unit<'a>(manifest_file: &String, config: &'a Config) -> Resu
         get_files(&root.parent().unwrap(), &config),
         dir.to_str().unwrap().to_string(),
         resolve_dependencies(&package, &config),
-        get_metadata(&root, &config)
+        Some(metadata)
       ))
     },
     None => {
@@ -86,7 +87,7 @@ fn construct_source_unit<'a>(manifest_file: &String, config: &'a Config) -> Resu
         get_files(&root.parent().unwrap(), &config),
         dir.to_str().unwrap().to_string(),
         resolve_dependencies(&package, &config),
-        get_metadata(&root, &config)
+        Some(metadata)
       ))
     }
   }
