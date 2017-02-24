@@ -5,6 +5,7 @@ extern crate semver;
 use self::cargo::core::{Dependency, SourceId};
 use self::cargo::core::dependency::{Platform, Kind};
 use self::cargo::ops::{ExportInfo};
+use self::cargo::ops::{OutputMetadataOptions};
 use self::rustc_serialize::{Encodable, Encoder};
 
 macro_rules! println_stderr(
@@ -15,6 +16,16 @@ macro_rules! println_stderr(
 );
 
 pub const PACKAGE_TYPE: &'static str = "RustCargoPackage";
+
+pub fn get_output_metadata_options() -> OutputMetadataOptions {
+  OutputMetadataOptions {
+    features: vec![],
+    no_default_features: false,
+    all_features: false,
+    no_deps: false,
+    version: 1,
+  }
+}
 
 pub struct EncodableVersion {
   version: semver::Version

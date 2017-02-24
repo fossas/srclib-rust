@@ -2,22 +2,22 @@ extern crate cargo;
 extern crate glob;
 extern crate semver;
 
-use self::cargo::core::{Dependency, Manifest, Package, SourceId, Summary};
-use self::cargo::sources::RegistrySource;
-use self::cargo::util::Config;
+use self::cargo::core::{Dependency, Manifest, Package, SourceId, Summary, Workspace};
+use self::cargo::sources::CRATES_IO;
 use self::cargo::ops;
 use std::collections::HashMap;
 use std::path::Path;
 use std::io::Write;
 
-use common::{EncodableVersion, ResolvedDependency};
+use common::{get_output_metadata_options, EncodableVersion, ResolvedDependency};
 
-pub fn resolve_dependencies<'a>(package: &Package, config: &'a Config) -> Option<Vec<ResolvedDependency>> {
+pub fn resolve_dependencies<'a>(ws: &Workspace, package: &Package) -> Option<Vec<ResolvedDependency>> {
   let dependencies: Vec<Dependency> = package.dependencies().iter().map(|dep| dep.clone()).collect();
   let mut resolved_dependencies: Vec<ResolvedDependency> = Vec::new();
   let mut version_lookup: HashMap<String, semver::Version> = HashMap::new();
+  let options = get_output_metadata_options();
 
-  match ops::resolve_dependencies(&package, &config, None, vec![], false) {
+  match ops::resolve_dependencies(ws, None, &options.features, options.all_features, options.no_default_features, &[]) {
     Ok((package_set, _)) => {
       for package_id in package_set.package_ids() {
         version_lookup.insert(package_id.name().to_string().clone(), package_id.version().clone());
@@ -54,7 +54,7 @@ pub fn resolve_dependencies<'a>(package: &Package, config: &'a Config) -> Option
 pub fn override_path_dependencies(package: &Package) -> Option<Package> {
   let dependencies: Vec<Dependency> = package.dependencies().iter().map(|dep| dep.clone()).collect();
   let mut new_dependencies = Vec::<Dependency>::new();
-  let registry_url = "registry+".to_string() + RegistrySource::default_url().as_str();
+  let registry_url = "registry+".to_string() + CRATES_IO;
 
   // Replace for paths that don't exist.
   for dependency in dependencies {
@@ -64,7 +64,14 @@ pub fn override_path_dependencies(package: &Package) -> Option<Package> {
       if path.exists() {
         new_dependencies.push(dependency.clone());
       } else {
-        new_dependencies.push(dependency.clone_inner().set_source_id(SourceId::from_url(registry_url.as_str())).into_dependency());
+        match SourceId::from_url(registry_url.as_str()) {
+          Ok(sid) => {
+            new_dependencies.push(dependency.clone_inner().set_source_id(sid).into_dependency());
+          }
+          Err(_) => {
+            println_stderr!("Could not override dependency: {:?}", dependency.name());
+          }
+        }
       }
     } else {
       new_dependencies.push(dependency.clone());
@@ -85,7 +92,8 @@ pub fn override_path_dependencies(package: &Package) -> Option<Package> {
         package.manifest().metadata().clone(),
         package.manifest().profiles().clone(),
         package.manifest().publish(),
-        package.manifest().replace().iter().map(|r| r.clone()).collect()
+        package.manifest().replace().iter().map(|r| r.clone()).collect(),
+        package.manifest().workspace_config().clone()
       );
 
       Some(Package::new(manifest, package.manifest_path().clone()))

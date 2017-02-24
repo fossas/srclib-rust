@@ -8,8 +8,8 @@ name = "srclib-rust"
 path = "src/main.rs"
 
 [dependencies]
-cargo = "0.11.0"
+cargo = "0.14.0"
 docopt = "0.6.81"
 glob = "0.2.11"
 rustc-serialize = "0.3"
-semver = "0.2.3"
+semver = "0.5.0"
