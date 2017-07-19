@@ -7,6 +7,7 @@ use self::cargo::core::dependency::{Platform, Kind};
 use self::cargo::ops::{ExportInfo};
 use self::cargo::ops::{OutputMetadataOptions};
 use self::rustc_serialize::{Encodable, Encoder};
+use std::path::Path;
 
 macro_rules! println_stderr(
   ($($arg:tt)*) => { {
@@ -55,12 +56,14 @@ pub struct ResolvedDependency {
   Scope: Option<String>,
   DefaultFeatures: bool,
   Features: Vec<String>,
-  Platform: Option<Platform>
+  Platform: Option<Platform>,
+  Path: Option<String>
 }
 
 impl ResolvedDependency {
   pub fn new(dependency: &Dependency,
-             version: Option<EncodableVersion>) -> ResolvedDependency {
+             version: Option<EncodableVersion>,
+             path: Option<&Path>) -> ResolvedDependency {
     ResolvedDependency {
       Name: dependency.name().to_string(),
       Version: version,
@@ -75,6 +78,13 @@ impl ResolvedDependency {
       Features: dependency.features().iter().map(|dep| dep.clone()).collect(),
       Platform: match dependency.platform() {
         Some(p) => Some(p.clone()),
+        None => None,
+      },
+      Path: match path {
+        Some(p) => match p.to_path_buf().to_str() {
+          Some(p) => Some(p.to_string()),
+          None => None
+        },
         None => None,
       }
     }

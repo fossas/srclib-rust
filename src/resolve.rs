@@ -28,11 +28,12 @@ pub fn resolve_dependencies<'a>(ws: &Workspace, package: &Package) -> Option<Vec
             resolved_dependencies.push(
               ResolvedDependency::new(
                 &dependency,
-                Some(EncodableVersion::new(&version))));
+                Some(EncodableVersion::new(&version)),
+                Some(package.manifest_path().clone())));
           },
           None => {
             resolved_dependencies.push(
-              ResolvedDependency::new(&dependency, None)
+              ResolvedDependency::new(&dependency, None, Some(package.manifest_path().clone()))
             );
           }
         }
