@@ -25,7 +25,7 @@ pub struct SourceUnit {
 
     #[serde(rename = "Dependencies")]
     deps: Option<Vec<ResolvedDependency>>,
-    
+
     #[serde(rename = "Data")]
     data: Option<License>,
 }
@@ -57,11 +57,11 @@ pub struct ResolvedDependency {
     cargo_toml_path: Option<String>,
 
     #[serde(rename = "Platform")]
-    platform: Option<String>
+    platform: Option<String>,
 }
 
 impl From<String> for License {
     fn from(value: String) -> Self {
-        Self {value}
+        Self { value }
     }
 }
