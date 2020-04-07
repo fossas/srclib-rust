@@ -40,6 +40,7 @@ fn parse_args() -> ParsedArgs {
 fn parse_cargo_meta(args: &ParsedArgs) -> Result<Metadata> {
     MetadataCommand::new()
         .manifest_path(get_manifest_path(&args.subdir)) // use subdir arg
+        .no_deps() // Don't get dependency meta
         .other_options(&["--offline".into()]) // don't make network calls
         .exec()
         .map_err(|e| e.into())
