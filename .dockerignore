@@ -1,0 +1,13 @@
+.git*
+Dockerfile
+.dockerignore
+README.md
+Makefile
+
+srclib-rust
+Srclibtoolchain
+
+target/
+
+# These are test files, the shouldn't be used.
+*.json
