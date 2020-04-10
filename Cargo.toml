@@ -1,15 +1,14 @@
 [package]
+edition = "2018"
 name = "srclib-rust"
-version = "0.0.1"
-authors = ["Jakub <jakub@jakub.cc>"]
-
-[[bin]]
-name = "srclib-rust"
-path = "src/main.rs"
+version = "0.1.0"
+authors = ["Jakub <jakub@jakub.cc>", "Wesley Van Melle <wes@fossa.com>"]
 
 [dependencies]
-cargo = "0.14.0"
-docopt = "0.6.81"
-glob = "0.2.11"
-rustc-serialize = "0.3"
-semver = "0.5.0"
+anyhow = "*"
+cargo_metadata = "*"
+derive_builder = "*"
+glob = "*"
+serde = { version = "*", features = ["derive"] }
+serde_json = "*"
+structopt = "*"
