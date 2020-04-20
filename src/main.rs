@@ -1,5 +1,6 @@
 use std::path::{Path, PathBuf};
 use std::process;
+use std::result::Result as StdResult;
 
 use anyhow::{anyhow, Result};
 use cargo_metadata::{Dependency, Metadata, MetadataCommand, Package};
@@ -47,34 +48,35 @@ fn parse_cargo_meta(args: &ParsedArgs) -> Result<Metadata> {
 }
 
 fn xform_meta(meta: Metadata, args: &ParsedArgs) -> Result<Vec<SourceUnit>> {
-    let this_package: &Package = get_this_package(&meta);
-    let src_unit = SourceUnitBuilder::default()
-        .name(this_package.name.to_owned())
-        .unit_type(UNIT_TYPE.to_owned())
-        .repo(Some(args.repo.clone()))
-        .files(get_source_files(&args.subdir)?)
-        .deps(Some(get_direct_deps(&this_package, args)?))
-        .data(this_package.license.to_owned().map(Into::<License>::into))
-        .build()
-        .map_err(|e| anyhow!(e))?;
+    let self_packages = extract_self_packages(&meta);
 
-    Ok(vec![src_unit])
+
+
+    self_packages
+        .iter()
+        .map(|this_package| {
+            Ok(SourceUnitBuilder::default()
+                .name(this_package.name.to_owned())
+                .unit_type(UNIT_TYPE.to_owned())
+                .repo(Some(args.repo.clone()))
+                .files(get_source_files(&args.subdir)?)
+                .deps(Some(get_direct_deps(&this_package, args)?))
+                .data(this_package.license.to_owned().map(Into::<License>::into))
+                .build()
+                .map_err(|e| anyhow!(e))?)
+        })
+        .collect()
 }
 
 fn serialize_units(units: &[SourceUnit]) -> Result<String> {
     serde_json::to_string(&units).map_err(|e| e.into())
 }
 
-fn get_this_package(meta: &Metadata) -> &Package {
-    let source_id = meta
-        .workspace_members
-        .first()
-        .expect("No workspace members found, cannot determine the correct package.");
-
+fn extract_self_packages(meta: &Metadata) -> Vec<&Package> {
     meta.packages
         .iter()
-        .find(|p| p.id == *source_id)
-        .expect("No known package matched the workspace member.")
+        .filter(|p| meta.workspace_members.contains(&p.id))
+        .collect()
 }
 
 fn get_direct_deps(pkg: &Package, args: &ParsedArgs) -> Result<Vec<ResolvedDependency>> {
@@ -107,8 +109,8 @@ fn get_source_files<P: AsRef<Path>>(root: P) -> Result<Vec<PathBuf>> {
     glob::glob(&root.as_ref().join("**/*.rs").display().to_string())?
         // Below is just an inverter between result and vec:
         // Vec<Result<PathBuf, GlobError>> -> Result<Vec<PathBuf>, anyhow::Error>
-        .map(|r| r.map_err(|e| e.into()))
-        .collect()
+        .collect::<StdResult<Vec<_>, _>>()
+        .map_err(|e| e.into())
 }
 
 fn inner_main() -> Result<String> {

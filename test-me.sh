@@ -5,8 +5,7 @@ if [ -t 1 ]; then
     exit 1
 fi
 
-git clone https://github.com/scruffystuffs/msh.git
-cd msh
-srclib-rust scan --repo github.com/scruffystuffs/msh --subdir .
-cargo metadata --offline --no-deps
+git clone https://github.com/sebasmagri/env_logger
+cd bitflags
+srclib-rust scan --repo github.com/sebasmagri/env_logger --subdir .
 echo "Test passed."
