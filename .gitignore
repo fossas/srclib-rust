@@ -7,3 +7,6 @@
 /srclib-rust
 .bin
 .srclib-cache
+
+# test output directories
+/repos

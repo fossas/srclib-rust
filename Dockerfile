@@ -4,7 +4,7 @@ WORKDIR /tc-build
 COPY src/ src/
 COPY Cargo.* ./
 
-RUN cargo build --release
+RUN cargo build --release --locked
 
 FROM rust
 
