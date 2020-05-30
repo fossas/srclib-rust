@@ -75,7 +75,7 @@ fn xform_meta(meta: Metadata, args: &ParsedArgs) -> Result<Vec<SourceUnit>> {
                 .repo(Some(args.repo.clone()))
                 .files(get_source_files(package_dir, &reference_path.as_path())?)
                 .deps(Some(get_direct_deps(&this_package, &meta, package_dir)?))
-                .data(this_package.license.to_owned().map(Into::<License>::into))
+                .data(this_package.license.to_owned().into())
                 .build()
                 .map_err(|e| anyhow!(e))?)
         })

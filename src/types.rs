@@ -6,7 +6,7 @@ use serde::Serialize;
 #[derive(Debug, Clone, PartialOrd, PartialEq, Serialize)]
 pub struct License {
     #[serde(rename = "License")]
-    value: String,
+    value: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialOrd, PartialEq, Serialize, Builder)]
@@ -27,7 +27,7 @@ pub struct SourceUnit {
     deps: Option<Vec<ResolvedDependency>>,
 
     #[serde(rename = "Data")]
-    data: Option<License>,
+    data: License,
 }
 
 #[derive(Debug, Clone, PartialOrd, PartialEq, Serialize, Builder)]
@@ -60,8 +60,8 @@ pub struct ResolvedDependency {
     platform: Option<String>,
 }
 
-impl From<String> for License {
-    fn from(value: String) -> Self {
+impl From<Option<String>> for License {
+    fn from(value: Option<String>) -> Self {
         Self { value }
     }
 }
