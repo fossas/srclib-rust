@@ -168,6 +168,12 @@ fn ensure_index<P: AsRef<Path>>(root: P) -> Result<()> {
 
 fn inner_main() -> Result<String> {
     let parsed = parse_args();
+
+    // If Cargo.toml doesn't exist, we don't have any sourceunits
+    if !get_manifest_path(&parsed.subdir).exists() {
+        return serialize_units(&[])
+    }
+
     // Using `cargo generate-lockfile`, we can update the cached index cheaply
     // without downloading whole crates.  This saves a lot of time and network
     // I/O. This takes a extra few seconds on cache hits, but can save tens of
