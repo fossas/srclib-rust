@@ -8,4 +8,6 @@ WORKDIR /tc-build
 COPY src/ src/
 COPY Cargo.* ./
 
+RUN cargo build
+
 CMD cargo run -- scan --repo x --subdir .
