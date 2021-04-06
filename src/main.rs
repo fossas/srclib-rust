@@ -1,4 +1,5 @@
 use std::error::Error as StdError;
+use std::io::{prelude::*, stdout, ErrorKind};
 use std::path::{Path, PathBuf};
 use std::process;
 use std::result::Result as StdResult;
@@ -67,7 +68,10 @@ fn xform_meta(meta: Metadata, args: &ParsedArgs) -> Result<Vec<SourceUnit>> {
         .map(|this_package| {
             // This is safe to unwrap/expect, since the manifest is a file
             // and all files have a parent directory.
-            let package_dir = this_package.manifest_path.parent().expect("Unexpected manifest path");
+            let package_dir = this_package
+                .manifest_path
+                .parent()
+                .expect("Unexpected manifest path");
 
             Ok(SourceUnitBuilder::default()
                 .name(this_package.name.to_owned())
@@ -93,31 +97,54 @@ fn extract_self_packages(meta: &Metadata) -> Vec<&Package> {
         .collect()
 }
 
-fn get_direct_deps<P: AsRef<Path>>(pkg: &Package, meta: &Metadata, root: P) -> Result<Vec<ResolvedDependency>> {
-    let resolved = meta.resolve.as_ref().ok_or_else(|| anyhow!("Could not locate dependency information"))?;
-    let root_node = resolved.nodes
+fn get_direct_deps<P: AsRef<Path>>(
+    pkg: &Package,
+    meta: &Metadata,
+    root: P,
+) -> Result<Vec<ResolvedDependency>> {
+    let resolved = meta
+        .resolve
+        .as_ref()
+        .ok_or_else(|| anyhow!("Could not locate dependency information"))?;
+    let root_node = resolved
+        .nodes
         .iter()
         .find(|node| node.id == pkg.id)
-        .ok_or_else(|| anyhow!(format!("Could not locate root node for package: {}", pkg.name)))?;        
+        .ok_or_else(|| {
+            anyhow!(format!(
+                "Could not locate root node for package: {}",
+                pkg.name
+            ))
+        })?;
 
     pkg.dependencies
         .iter()
         .cloned()
         .map(|dep| {
-            let version_candidates: Vec<Version> = root_node.dependencies
-            .iter()
-            .filter(|id| id.repr.starts_with(&dep.name))
-            .map(extract_pkg_version)
-            .collect();
+            let version_candidates: Vec<Version> = root_node
+                .dependencies
+                .iter()
+                .filter(|id| id.repr.starts_with(&dep.name))
+                .map(extract_pkg_version)
+                .collect();
             try_dep_xform(dep, &root, &version_candidates)
         })
         .collect()
 }
 
-fn try_dep_xform<P: AsRef<Path>>(dep: Dependency, root: P, versions: &[Version]) -> Result<ResolvedDependency> {
+fn try_dep_xform<P: AsRef<Path>>(
+    dep: Dependency,
+    root: P,
+    versions: &[Version],
+) -> Result<ResolvedDependency> {
     ResolvedDependencyBuilder::default()
         .name(dep.name.clone())
-        .version(versions.iter().find(|version| dep.req.matches(version)).map(ToString::to_string))
+        .version(
+            versions
+                .iter()
+                .find(|version| dep.req.matches(version))
+                .map(ToString::to_string),
+        )
         .optional(dep.optional)
         .source(
             dep.source
@@ -126,7 +153,12 @@ fn try_dep_xform<P: AsRef<Path>>(dep: Dependency, root: P, versions: &[Version])
         .scope(Some("normal".into()))
         .default_features(dep.uses_default_features)
         .features(dep.features)
-        .cargo_toml_path(Some(get_manifest_path(&root).canonicalize()?.display().to_string()))
+        .cargo_toml_path(Some(
+            get_manifest_path(&root)
+                .canonicalize()?
+                .display()
+                .to_string(),
+        ))
         .platform(dep.target.map(|p| p.to_string()))
         .build()
         .map_err(|e| anyhow!(e))
@@ -171,7 +203,7 @@ fn inner_main() -> Result<String> {
 
     // If Cargo.toml doesn't exist, we don't have any sourceunits
     if !get_manifest_path(&parsed.subdir).exists() {
-        return serialize_units(&[])
+        return serialize_units(&[]);
     }
 
     // Using `cargo generate-lockfile`, we can update the cached index cheaply
@@ -184,14 +216,14 @@ fn inner_main() -> Result<String> {
     serialize_units(&units)
 }
 
-fn main() {
-    match inner_main() {
-        Ok(output) => {
-            println!("{}", output);
+fn main() -> Result<()> {
+    if let Err(e) = writeln!(stdout(), "{}", inner_main()?) {
+        if let ErrorKind::BrokenPipe = e.kind() {
+            return Ok(())
+        } else {
+            return Err(e.into());
         }
-        Err(err) => {
-            eprintln!("Error: {}", err);
-            process::exit(1);
-        }
-    }
+    };
+
+    Ok(())
 }
